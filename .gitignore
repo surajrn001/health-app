@@ -48,3 +48,8 @@ htmlcov/
 *.swo
 .DS_Store
 Thumbs.db
+
+# Archives
+*.zip
+*.tar.gz
+
