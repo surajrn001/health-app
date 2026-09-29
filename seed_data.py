@@ -1,5 +1,6 @@
 import sys
 import os
+from datetime import datetime, timezone, timedelta
 
 if sys.platform == "win32":
     try:
@@ -14,6 +15,7 @@ from app.models.user import User, UserRole
 from app.models.doctor import Doctor
 from app.models.patient import Patient
 from app.models.doctor_patient import DoctorPatient
+from app.models.appointment import Appointment, AppointmentStatus
 from app.auth.jwt import hash_password
 
 
@@ -33,6 +35,8 @@ def seed():
                 hashed_password=hash_password("AdminPassword123"),
                 role=UserRole.ADMIN,
                 is_active=True,
+                created_by="system",
+                updated_by="system",
             )
             db.add(admin)
             db.flush()
@@ -42,6 +46,8 @@ def seed():
             hashed_password=hash_password("Doctor@123"),
             role=UserRole.DOCTOR,
             is_active=True,
+            created_by=admin.email,
+            updated_by=admin.email,
         )
         db.add(user_doc1)
         db.flush()
@@ -52,6 +58,8 @@ def seed():
             email="dr.strange@healthapp.com",
             is_active=True,
             user_id=user_doc1.id,
+            created_by=admin.email,
+            updated_by=admin.email,
         )
         db.add(doc1)
         db.flush()
@@ -61,6 +69,8 @@ def seed():
             hashed_password=hash_password("Doctor@123"),
             role=UserRole.DOCTOR,
             is_active=True,
+            created_by=admin.email,
+            updated_by=admin.email,
         )
         db.add(user_doc2)
         db.flush()
@@ -71,15 +81,17 @@ def seed():
             email="dr.house@healthapp.com",
             is_active=True,
             user_id=user_doc2.id,
+            created_by=admin.email,
+            updated_by=admin.email,
         )
         db.add(doc2)
         db.flush()
 
-        p1 = Patient(name="John Doe", age=34, phone="+12345678901", is_active=True)
-        p2 = Patient(name="Jane Smith", age=29, phone="+19876543210", is_active=True)
-        p3 = Patient(name="Robert Brown", age=52, phone="+11223344556", is_active=True)
-        p4 = Patient(name="Emily Davis", age=41, phone="+15556667778", is_active=True)
-        p5 = Patient(name="Michael Green", age=68, phone="+19998887776", is_active=True)
+        p1 = Patient(name="John Doe", age=34, phone="9876543210", doctor_id=doc1.id, is_active=True, created_by=admin.email, updated_by=admin.email)
+        p2 = Patient(name="Jane Smith", age=29, phone="9876543211", doctor_id=doc1.id, is_active=True, created_by=admin.email, updated_by=admin.email)
+        p3 = Patient(name="Robert Brown", age=52, phone="9876543212", doctor_id=doc2.id, is_active=True, created_by=admin.email, updated_by=admin.email)
+        p4 = Patient(name="Emily Davis", age=41, phone="9876543213", doctor_id=doc2.id, is_active=True, created_by=admin.email, updated_by=admin.email)
+        p5 = Patient(name="Michael Green", age=68, phone="9876543214", is_active=True, created_by=admin.email, updated_by=admin.email)
 
         db.add_all([p1, p2, p3, p4, p5])
         db.flush()
@@ -88,11 +100,37 @@ def seed():
         a2 = DoctorPatient(doctor_id=doc1.id, patient_id=p2.id)
         a3 = DoctorPatient(doctor_id=doc2.id, patient_id=p3.id)
         a4 = DoctorPatient(doctor_id=doc2.id, patient_id=p4.id)
-
         db.add_all([a1, a2, a3, a4])
+
+        now = datetime.now(timezone.utc)
+        appt1 = Appointment(
+            doctor_id=doc1.id,
+            patient_id=p1.id,
+            appointment_date=now + timedelta(days=1, hours=2),
+            status=AppointmentStatus.SCHEDULED,
+            created_by=admin.email,
+            updated_by=admin.email,
+        )
+        appt2 = Appointment(
+            doctor_id=doc1.id,
+            patient_id=p2.id,
+            appointment_date=now + timedelta(days=2, hours=4),
+            status=AppointmentStatus.SCHEDULED,
+            created_by=admin.email,
+            updated_by=admin.email,
+        )
+        appt3 = Appointment(
+            doctor_id=doc2.id,
+            patient_id=p3.id,
+            appointment_date=now + timedelta(days=1, hours=3),
+            status=AppointmentStatus.SCHEDULED,
+            created_by=admin.email,
+            updated_by=admin.email,
+        )
+        db.add_all([appt1, appt2, appt3])
         db.commit()
 
-        print("Seeding completed successfully.")
+        print("Seeding completed successfully with doctors, patients, and sample appointments.")
 
     except Exception as e:
         db.rollback()

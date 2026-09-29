@@ -11,9 +11,10 @@ from sqlalchemy.pool import StaticPool
 
 from app.main import app
 from app.database import Base, get_db
-from app.models.user import User, UserRole
-from app.models.doctor import Doctor
+from app.models import User, UserRole, Doctor, Patient, DoctorPatient, Appointment, AppointmentStatus
 from app.auth.jwt import hash_password, create_access_token
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 
@@ -22,6 +23,15 @@ engine = create_engine(
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
 )
+
+
+@event.listens_for(engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
+
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 

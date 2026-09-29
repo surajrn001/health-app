@@ -17,11 +17,20 @@ from app.crud.crud_patient import (
     get_patients,
     create_patient,
     update_patient,
+    soft_delete_patient,
 )
 from app.crud.crud_assignment import (
     assign_patient_to_doctor,
     get_doctor_patients,
     is_patient_assigned_to_doctor,
+)
+from app.crud.crud_appointment import (
+    get_appointment,
+    get_appointments,
+    create_appointment,
+    update_appointment,
+    delete_appointment,
+    check_overlapping_appointment,
 )
 
 __all__ = [
@@ -39,7 +48,14 @@ __all__ = [
     "get_patients",
     "create_patient",
     "update_patient",
+    "soft_delete_patient",
     "assign_patient_to_doctor",
     "get_doctor_patients",
     "is_patient_assigned_to_doctor",
+    "get_appointment",
+    "get_appointments",
+    "create_appointment",
+    "update_appointment",
+    "delete_appointment",
+    "check_overlapping_appointment",
 ]

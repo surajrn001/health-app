@@ -1,60 +1,77 @@
-# Healthcare Management Backend API
+# Healthcare Management Backend API (Levels 1 – 18)
 
-A backend system built with FastAPI, SQLAlchemy, Pydantic, and JWT authentication for managing Doctors and Patients.
+An enterprise-grade, production-ready healthcare management backend built with **FastAPI**, **SQLAlchemy ORM**, **Pydantic v2**, and **JWT Authentication**. Provides complete management for Doctors, Patients, Assignments, Appointments, Role-Based Access Control (RBAC), Performance Optimization, Auditing, and Global Error Handling.
 
 ---
 
 ## Tech Stack
-- Python 3.9+
-- FastAPI
-- Pydantic v2
-- SQLAlchemy 2.0
-- SQLite / PostgreSQL
-- PyJWT & Bcrypt
-- Uvicorn
-- Alembic
-- Pytest
+- **Python:** 3.9+ (Tested on Python 3.13)
+- **Framework:** FastAPI
+- **Validation & Serialization:** Pydantic v2
+- **ORM & Database:** SQLAlchemy 2.0 & SQLite / PostgreSQL
+- **Security & Auth:** PyJWT, Passlib with Bcrypt
+- **Rate Limiting:** SlowAPI
+- **Testing:** Pytest (58 passing tests with 89% code coverage)
+- **ASGI Server:** Uvicorn
+- **Containerization:** Docker & Docker Compose
 
 ---
 
-## Project Structure
+## Project Structure (Modular Clean Architecture)
 
 ```
 Health_app/
 ├── app/
-│   ├── main.py                  # FastAPI application entrypoint
-│   ├── config.py                # App configuration via pydantic-settings
-│   ├── database.py              # Database engine and session dependency
-│   ├── limiter.py               # Rate limiter
+│   ├── main.py                  # FastAPI application entrypoint with middleware, exception handlers & lifespan
+│   ├── config.py                # Environment configuration via pydantic-settings
+│   ├── database.py              # SQLite database engine, session local & get_db dependency (foreign key pragma enabled)
+│   ├── services.py              # Business logic domain services (DoctorService, PatientService, AppointmentService, etc.)
+│   ├── limiter.py               # SlowAPI rate limiter
 │   ├── auth/                    # Authentication and RBAC
-│   │   ├── jwt.py               # Password hashing and JWT generation
-│   │   └── dependencies.py      # Auth and role dependencies
+│   │   ├── jwt.py               # Bcrypt password hashing and JWT token creation/decoding
+│   │   └── dependencies.py      # Current user and role dependencies
 │   ├── models/                  # SQLAlchemy models
+│   │   ├── base.py              # AuditableMixin (created_at, updated_at, created_by, updated_by)
 │   │   ├── user.py              # User model (admin/doctor)
-│   │   ├── doctor.py            # Doctor model
-│   │   ├── patient.py           # Patient model
-│   │   └── doctor_patient.py    # Doctor-Patient association
-│   ├── schemas/                 # Pydantic schemas
-│   │   ├── auth.py              # Auth request/response schemas
-│   │   ├── doctor.py            # Doctor schemas
-│   │   ├── patient.py           # Patient schemas
-│   │   ├── assignment.py        # Assignment schemas
-│   │   └── common.py            # Pagination schemas
-│   ├── crud/                    # Business logic and database operations
+│   │   ├── doctor.py            # Doctor model (with patients and appointments relations)
+│   │   ├── patient.py           # Patient model (with doctor_id foreign key)
+│   │   ├── doctor_patient.py    # Doctor-Patient association
+│   │   └── appointment.py       # Appointment model with status lifecycle and composite indexes
+│   ├── schemas/                 # Pydantic validation schemas
+│   │   ├── auth.py              # Register, Login, Token schemas
+│   │   ├── doctor.py            # DoctorCreate, DoctorUpdate, DoctorResponse, DoctorDetailResponse
+│   │   ├── patient.py           # PatientCreate, PatientUpdate (10-digit phone regex), PatientResponse
+│   │   ├── appointment.py       # AppointmentCreate, AppointmentUpdate, AppointmentResponse
+│   │   ├── assignment.py        # Doctor-Patient assignment schemas
+│   │   └── common.py            # PaginatedResponse, MessageResponse, ErrorResponse schemas
+│   ├── crud/                    # Database CRUD operations
 │   │   ├── crud_user.py
 │   │   ├── crud_doctor.py
 │   │   ├── crud_patient.py
-│   │   └── crud_assignment.py
-│   └── routers/                 # API route handlers
+│   │   ├── crud_assignment.py
+│   │   └── crud_appointment.py
+│   └── routes/                  # API route handlers
+│       ├── __init__.py          # Exports api_v1_router and individual routers
 │       ├── auth.py              # /auth endpoints
 │       ├── doctors.py           # /doctors endpoints
-│       └── patients.py          # /patients endpoints
+│       ├── patients.py          # /patients endpoints
+│       └── appointments.py      # /appointments endpoints
 ├── alembic/                     # Database migrations
-├── tests/                       # Automated test suite (26 tests)
+│   └── versions/                # Migration scripts
+├── tests/                       # Automated test suite (58 passing tests, 89% coverage)
+│   ├── conftest.py              # Test database engine and fixtures
+│   ├── test_auth.py             # Authentication & token tests
+│   ├── test_doctors.py          # Doctor CRUD, PATCH, filters, versioning tests
+│   ├── test_patients.py         # Patient CRUD, PATCH, regex phone, age_gt filter tests
+│   ├── test_assignments.py     # Assignment & doctor-patient relationship tests
+│   ├── test_appointments.py    # Appointment CRUD, overlaps, and subroutes tests
+│   ├── test_roles.py           # Role restrictions (Doctor cannot delete doctors or patients)
+│   ├── test_audit_and_hardening.py # Audit fields, response time, and error format tests
+│   └── test_services.py        # Service layer unit tests
 ├── .env.example                 # Environment variables template
-├── .env                         # Local environment file
-├── Dockerfile                   # Docker build file
-├── docker-compose.yml           # Docker compose file
+├── .env                         # Local environment configuration
+├── Dockerfile                   # Multi-stage production Dockerfile
+├── docker-compose.yml           # Docker Compose definition
 ├── pytest.ini                   # Pytest configuration
 ├── requirements.txt             # Project dependencies
 ├── seed_data.py                 # Sample database seeder
@@ -63,9 +80,74 @@ Health_app/
 
 ---
 
-## Setup Instructions
+## Implemented Enhancements by Level
 
-### 1. Local Environment Setup
+### Level 11: Role-Based Authorization (RBAC)
+- Enhanced JWT authentication with claims for `role` (`admin`, `doctor`), `user_id`, and `doctor_id`.
+- **Admin**: Full access across all Doctor, Patient, and Appointment APIs.
+- **Doctor**:
+  - Can view only their assigned patients (`GET /patients`, `GET /patients/{id}`, `GET /doctors/{id}/patients`).
+  - Cannot delete doctors (`DELETE /doctors/{id}` -> HTTP 403 Forbidden).
+  - Cannot delete patients (`DELETE /patients/{id}` -> HTTP 403 Forbidden).
+  - Returns HTTP 403 Forbidden for any unauthorized boundary breach.
+
+### Level 12: Appointment Module
+- **Model**: `appointments` (`id`, `doctor_id`, `patient_id`, `appointment_date`, `status`, `created_at`, `updated_at`, `created_by`, `updated_by`).
+- **Status Lifecycle**: `scheduled`, `completed`, `cancelled`.
+- **Validation Rules**:
+  - Doctor and Patient must exist in the database (HTTP 404).
+  - Doctor must be active; Patient must be active (HTTP 400).
+  - Overlap Prevention: Blocks overlapping appointments for the same doctor within a 30-minute window unless cancelled.
+- **APIs**:
+  - Full CRUD: `POST`, `GET`, `GET /{id}`, `PUT /{id}`, `PATCH /{id}`, `DELETE /{id}` under `/api/v1/appointments`.
+  - Doctor Appointments: `GET /api/v1/doctors/{doctor_id}/appointments`.
+  - Patient Appointments: `GET /api/v1/patients/{patient_id}/appointments`.
+
+### Level 13: Data Integrity & Constraints
+- Database-level unique constraints on `doctors.email` and `users.email`.
+- SQLite foreign key constraints actively enforced (`PRAGMA foreign_keys = ON;`).
+- Cascading delete on appointments (`ondelete="CASCADE"`) when referenced records are deleted.
+- Graceful database exception handling (`IntegrityError`, `SQLAlchemyError`) returning clean, user-friendly JSON error messages instead of raw SQL traces.
+
+### Level 14: Performance & Query Optimization
+- SQLAlchemy query optimization eliminating N+1 queries using `joinedload` and `selectinload`.
+- Database indexes on query fields and composite indexes (`(doctor_id, appointment_date)`, `(doctor_id, is_active)`).
+- Custom timing middleware measuring execution duration and attaching `X-Process-Time` and `X-Response-Time` headers.
+
+### Level 15: Audit & Tracking
+- `AuditableMixin` providing `created_at`, `updated_at`, `created_by`, `updated_by`.
+- Automatically populates `created_by` and `updated_by` with the authenticated JWT user.
+- Timestamps automatically updated on record updates.
+
+### Level 16: API Hardening & Reliability
+- Global exception handlers for `HTTPException`, `RequestValidationError`, `IntegrityError`, `RateLimitExceeded`, and generic `Exception`.
+- Standardized custom error response format:
+  ```json
+  {
+    "status": "error",
+    "code": 404,
+    "message": "Doctor with id 999 not found",
+    "detail": "Doctor with id 999 not found",
+    "errors": []
+  }
+  ```
+- SlowAPI rate limiting enabled across all endpoints.
+
+### Level 17: Testing & Coverage
+- Comprehensive test suite covering services, validation logic, auth flows, and role restrictions.
+- **58 automated tests** passing.
+- **89% overall code coverage** (Services: 99%, Schemas: 100%, Appointments: 89%).
+
+### Level 18: Documentation & Maintainability
+- OpenAPI tags with rich descriptions.
+- Pydantic V2 `json_schema_extra` request and response examples for all schemas.
+- Interactive Swagger UI (`/docs`) and ReDoc (`/redoc`).
+
+---
+
+## Setup & Running Instructions
+
+### 1. Local Setup
 
 Create and activate virtual environment:
 ```powershell
@@ -78,17 +160,7 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-Set up environment variables:
-```powershell
-copy .env.example .env
-```
-
-Apply database migrations:
-```powershell
-alembic upgrade head
-```
-
-Seed initial test data (optional):
+Seed initial sample data:
 ```powershell
 python seed_data.py
 ```
@@ -98,103 +170,29 @@ Run development server:
 uvicorn app.main:app --reload --port 8000
 ```
 
-- API Docs (Swagger UI): http://localhost:8000/docs
-- Health check: http://localhost:8000/health
+### 2. Swagger UI Documentation
+Open your browser to:
+- **Interactive Swagger UI:** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+- **ReDoc Documentation:** [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
+- **OpenAPI Schema:** [http://127.0.0.1:8000/openapi.json](http://127.0.0.1:8000/openapi.json)
 
 ---
 
-### 2. Docker Setup
+## Running Automated Tests
 
-To run using Docker:
-```bash
-docker-compose up --build
-```
-
----
-
-## Environment Configuration
-
-Configuration variables in `.env`:
-
-| Variable | Description | Default |
-|---|---|---|
-| `PROJECT_NAME` | Name of the API | `Health App API` |
-| `SECRET_KEY` | Secret key for JWT signing | `secret-key-change-in-production` |
-| `ALGORITHM` | JWT algorithm | `HS256` |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | Token validity duration | `120` |
-| `DATABASE_URL` | SQLAlchemy connection string | `sqlite:///./health_app.db` |
-| `RATE_LIMIT_DEFAULT` | Default rate limit | `100/minute` |
-| `RATE_LIMIT_AUTH` | Auth endpoints rate limit | `20/minute` |
-
----
-
-## How Authentication Works
-
-1. **Password Hashing:** Passwords are hashed using bcrypt before storing in the database.
-2. **Login (`POST /auth/login`):** Users authenticate with email and password. On success, the API returns a JWT access token containing the user ID, email, and role.
-3. **Protected Requests:** Clients send the token in the `Authorization` header:
-   ```
-   Authorization: Bearer <access_token>
-   ```
-4. **Role Enforcement:**
-   - **Admin:** Can create doctors, soft-delete doctors, view all patients, and manage assignments.
-   - **Doctor:** Can only view and update their assigned patients. Attempting to view unassigned patients returns `403 Forbidden`.
-
----
-
-## API Flow Overview
-
-### Authentication
-- `POST /auth/register` - Register a new user (`admin` or `doctor`)
-- `POST /auth/login` - Authenticate and obtain JWT token
-- `GET /auth/me` - Get current user profile
-
-### Doctor Management
-- `POST /doctors` - Create doctor (Admin only)
-- `GET /doctors` - List doctors (Supports pagination and search)
-- `GET /doctors/{doctor_id}` - Get doctor details
-- `PUT /doctors/{doctor_id}` - Update doctor (Admin or self)
-- `DELETE /doctors/{doctor_id}` - Soft delete doctor (Admin only, sets `is_active=False`)
-
-### Patient Management
-- `POST /patients` - Create patient (Validates age > 0, phone 10-15 digits)
-- `GET /patients` - List patients (Admin sees all; Doctor sees only assigned patients)
-- `GET /patients/{patient_id}` - Get patient details (Admin sees any; Doctor sees only if assigned)
-- `PUT /patients/{patient_id}` - Update patient details
-
-### Doctor-Patient Assignment
-- `POST /doctors/{doctor_id}/patients/{patient_id}` - Assign patient to doctor
-- `GET /doctors/{doctor_id}/patients` - Fetch doctor's assigned patients (Doctor can only access their own list)
-
----
-
-## Running Unit Tests
-
-Run the test suite with pytest:
+Run the test suite with pytest and code coverage:
 ```powershell
-pytest -v
+pytest -v --cov=app --cov-report=term-missing
 ```
 
-All 26 tests cover authentication, doctor CRUD, patient CRUD, validations, and role-based access restrictions.
+Expected result: **58 passed in ~32s** with **89% coverage**.
 
 ---
 
-## Default Test Accounts
+## Default Seed Test Accounts
 
-After running `python seed_data.py`:
-
-| Role | Email | Password | Details |
+| Role | Email | Password | Privileges / Assigned Patients |
 |---|---|---|---|
-| **Admin** | `admin@healthapp.com` | `AdminPassword123` | Full administrative access |
+| **Admin** | `admin@healthapp.com` | `AdminPassword123` | Full admin privileges across all endpoints |
 | **Doctor** | `dr.strange@healthapp.com` | `Doctor@123` | Assigned to John Doe, Jane Smith |
 | **Doctor** | `dr.house@healthapp.com` | `Doctor@123` | Assigned to Robert Brown, Emily Davis |
-
----
-
-## Assumptions & Design Decisions
-
-1. **Doctor Accounts:** When an Admin creates a Doctor, an associated login user account is created with role `doctor` so they can log into the system.
-2. **Soft Deletion:** Deleting a doctor sets `is_active = False` on the doctor and their user account, preventing new assignments or logins while preserving history.
-3. **Doctor Privacy:** Doctors can only see patients assigned to them via the `doctor_patient` table. Accessing unassigned patients returns `403 Forbidden`.
-4. **Auto-Assignment:** When a doctor creates a patient via `POST /patients`, the patient is automatically assigned to that doctor.
-5. **Phone Format:** Cleaned and verified to have between 10 and 15 digits (optional leading `+`).

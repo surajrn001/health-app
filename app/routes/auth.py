@@ -31,7 +31,7 @@ def register(
 
     user = create_user(db, user_in)
     doctor = get_doctor_profile(user, db)
-    
+
     return UserResponse(
         id=user.id,
         email=user.email,

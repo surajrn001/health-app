@@ -4,7 +4,7 @@ from fastapi import status
 def test_assign_patient_by_admin(client, admin_headers, doctor1_fixture):
     p_res = client.post(
         "/patients",
-        json={"name": "Assigned Patient", "age": 45, "phone": "+19876543210"},
+        json={"name": "Assigned Patient", "age": 45, "phone": "9876543210"},
         headers=admin_headers,
     )
     patient_id = p_res.json()["id"]
